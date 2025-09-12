@@ -16,42 +16,22 @@ class Config:
     DATABASE_URL = ""
     DEFAULT_UPLOAD = "rc"
     DELETE_LINKS = False
-    DEBRID_LINK_API = ""
-    DISABLE_TORRENTS = False
     DISABLE_LEECH = False
     DISABLE_BULK = False
     DISABLE_MULTI = False
-    DISABLE_SEED = False
     DISABLE_FF_MODE = False
     EQUAL_SPLITS = False
     EXCLUDED_EXTENSIONS = ""
     FFMPEG_CMDS = {}
-    FILELION_API = ""
     MEDIA_STORE = True
     FORCE_SUB_IDS = ""
-    GDRIVE_ID = ""
-    GD_DESP = "Uploaded with WZ Bot"
     AUTHOR_NAME = "WZML-X"
     AUTHOR_URL = "https://t.me/WZML_X"
-    INSTADL_API = ""
     IMDB_TEMPLATE = ""
     INCOMPLETE_TASK_NOTIFIER = False
-    INDEX_URL = ""
-    IS_TEAM_DRIVE = False
-    JD_EMAIL = ""
-    JD_PASS = ""
     MEGA_EMAIL = ""
     MEGA_PASSWORD = ""
-    DIRECT_LIMIT = 0
     MEGA_LIMIT = 0
-    TORRENT_LIMIT = 0
-    GD_DL_LIMIT = 0
-    RC_DL_LIMIT = 0
-    CLONE_LIMIT = 0
-    JD_LIMIT = 0
-    NZB_LIMIT = 0
-    YTDLP_LIMIT = 0
-    PLAYLIST_LIMIT = 0
     LEECH_LIMIT = 0
     EXTRACT_LIMIT = 0
     ARCHIVE_LIMIT = 0
@@ -68,20 +48,12 @@ class Config:
     MEDIA_GROUP = False
     HYBRID_LEECH = True
     HYPER_THREADS = 0
-    HYDRA_IP = ""
-    HYDRA_API_KEY = ""
     NAME_SWAP = ""
     OWNER_ID = 0
     QUEUE_ALL = 0
     QUEUE_DOWNLOAD = 0
     QUEUE_UPLOAD = 0
-    RCLONE_FLAGS = ""
-    RCLONE_PATH = ""
-    RCLONE_SERVE_URL = ""
     SHOW_CLOUD_LINK = True
-    RCLONE_SERVE_USER = ""
-    RCLONE_SERVE_PASS = ""
-    RCLONE_SERVE_PORT = 8080
     RSS_CHAT = ""
     RSS_DELAY = 600
     RSS_SIZE_LIMIT = 0
@@ -100,7 +72,6 @@ class Config:
     THUMBNAIL_LAYOUT = ""
     VERIFY_TIMEOUT = 0
     LOGIN_PASS = ""
-    TORRENT_TIMEOUT = 0
     TIMEZONE = "Asia/Kolkata"
     USER_MAX_TASKS = 0
     USER_TIME_INTERVAL = 0
@@ -108,16 +79,9 @@ class Config:
     UPSTREAM_REPO = ""
     UPSTREAM_BRANCH = "master"
     UPDATE_PKGS = True
-    USENET_SERVERS = []
     USER_SESSION_STRING = ""
-    USER_TRANSMISSION = True
     USE_SERVICE_ACCOUNTS = False
     WEB_PINCODE = True
-    YT_DLP_OPTIONS = {}
-    YT_DESP = "Uploaded with WZML-X bot"
-    YT_TAGS = ["telegram", "bot", "youtube"]
-    YT_CATEGORY_ID = 22
-    YT_PRIVACY_STATUS = "unlisted"
 
     @classmethod
     def get(cls, key):
@@ -160,18 +124,9 @@ class Config:
                     value = "rc"
                 elif attr in [
                     "BASE_URL",
-                    "RCLONE_SERVE_URL",
-                    "INDEX_URL",
-                    "SEARCH_API_LINK",
                 ]:
                     if value:
                         value = value.strip("/")
-                elif attr == "USENET_SERVERS":
-                    try:
-                        if not value[0].get("host"):
-                            continue
-                    except Exception:
-                        continue
                 setattr(cls, attr, value)
         for key in ["BOT_TOKEN", "OWNER_ID", "TELEGRAM_API", "TELEGRAM_HASH"]:
             value = getattr(cls, key)
@@ -216,18 +171,9 @@ class Config:
                     value = "rc"
                 elif key in [
                     "BASE_URL",
-                    "RCLONE_SERVE_URL",
-                    "INDEX_URL",
-                    "SEARCH_API_LINK",
                 ]:
                     if value:
                         value = value.strip("/")
-                elif key == "USENET_SERVERS":
-                    try:
-                        if not value[0].get("host"):
-                            value = []
-                    except Exception:
-                        value = []
                 setattr(cls, key, value)
         for key in ["BOT_TOKEN", "OWNER_ID", "TELEGRAM_API", "TELEGRAM_HASH"]:
             value = getattr(cls, key)
@@ -237,9 +183,3 @@ class Config:
                 raise ValueError(f"{key} variable is missing!")
 
 
-class BinConfig:
-    ARIA2_NAME = "blitzfetcher"
-    QBIT_NAME = "stormtorrent"
-    FFMPEG_NAME = "mediaforge"
-    RCLONE_NAME = "ghostdrive"
-    SABNZBD_NAME = "newsripper"

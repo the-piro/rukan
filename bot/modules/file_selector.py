@@ -6,10 +6,8 @@ from .. import (
     task_dict_lock,
     user_data,
     LOGGER,
-    sabnzbd_client,
 )
 from ..core.config_manager import Config
-from ..core.torrent_manager import TorrentManager
 from ..helper.ext_utils.bot_utils import (
     bt_selection_buttons,
     new_task,

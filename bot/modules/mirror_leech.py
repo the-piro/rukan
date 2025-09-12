@@ -26,7 +26,6 @@ from ..helper.telegram_helper.message_utils import (
     get_tg_link_message,
     send_message,
 )
-)
 
 
 class Mirror(TaskListener):
