@@ -1,18 +1,31 @@
+# Virtual environment
 .venv/*
+venv/*
+__pycache__/
+*.pyc
+*.pyo
+
+# Configuration
 config.py
-token.pickle
-rclone.conf
-.netrc
-log.txt
-cfg.zip
-accounts/*
-thumbnails/*
-rclone/*
-tokens/*
-cookies/*
-mediainfo/*
-sabnzbd/*
-list_drives.txt
-shortener.txt
-cookies.txt
+.env
+
+# Downloads
 downloads/*
+
+# Logs
+log.txt
+*.log
+
+# Cache files
+.cache/
+cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
