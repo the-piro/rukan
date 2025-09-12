@@ -46,6 +46,21 @@ A simplified Telegram bot for leeching files from MEGA and uploading them to Tel
 
 ## Installation
 
+### Prerequisites
+- Python 3.8+ (tested with 3.12)
+- PyMegaSDK (see MEGA SDK Setup below)
+
+### MEGA SDK Setup
+The bot requires the PyMegaSDK. Install it manually:
+```bash
+# Install compatible version
+pip install "tenacity<9.0.0"
+pip install mega.py
+
+# Note: If you encounter asyncio.coroutine errors with Python 3.11+,
+# you may need to use an alternative MEGA implementation or patch the library
+```
+
 ### Docker
 ```bash
 # Clone the repository
@@ -69,6 +84,10 @@ cd rukan
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Install MEGA SDK separately
+pip install "tenacity<9.0.0"
+pip install mega.py
 
 # Create config.py with your settings
 cp config_sample.py config.py

@@ -16,7 +16,8 @@ httpx
 langcodes
 jinja2
 lxml
-mega.py
+# MEGA SDK - install manually: pip install mega.py
+# Note: Requires PyMegaSDK compatible version
 motor
 natsort
 pillow
@@ -29,7 +30,7 @@ pytz
 requests
 speedtest-cli
 telegraph
-tenacity
+tenacity<9.0.0
 tgcrypto
 urllib3
 uvicorn

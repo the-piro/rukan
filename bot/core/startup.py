@@ -26,7 +26,7 @@ from .. import (
     sudo_users,
 )
 from ..helper.ext_utils.db_handler import database
-from .config_manager import Config, BinConfig
+from .config_manager import Config
 from .tg_client import TgClient
 from .torrent_manager import TorrentManager
 
@@ -300,7 +300,7 @@ async def load_configurations():
 
     await (
         await create_subprocess_shell(
-            f"chmod 600 .netrc && cp .netrc /root/.netrc && chmod +x setpkgs.sh && ./setpkgs.sh {BinConfig.ARIA2_NAME} {BinConfig.SABNZBD_NAME}"
+            f"chmod 600 .netrc && cp .netrc /root/.netrc && chmod +x setpkgs.sh && ./setpkgs.sh {"aria2"2_NAME} {"aria2"}"
         )
     ).wait()
 

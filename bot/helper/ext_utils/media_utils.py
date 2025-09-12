@@ -17,7 +17,6 @@ from aioshutil import rmtree
 from langcodes import Language
 
 from ... import LOGGER, cpu_no, DOWNLOAD_DIR
-from ...core.config_manager import BinConfig
 from .bot_utils import cmd_exec, sync_to_async
 from .files_utils import get_mime_type, is_archive, is_archive_split
 from .status_utils import time_to_seconds
@@ -201,7 +200,7 @@ async def take_ss(video_file, ss_nb) -> bool:
         for i in range(ss_nb):
             output = f"{dirpath}/SS.{name}_{i:02}.png"
             cmd = [
-                BinConfig.FFMPEG_NAME,
+                "ffmpeg",
                 "-hide_banner",
                 "-loglevel",
                 "error",
@@ -244,7 +243,7 @@ async def get_audio_thumbnail(audio_file):
     await makedirs(output_dir, exist_ok=True)
     output = ospath.join(output_dir, f"{time()}.jpg")
     cmd = [
-        BinConfig.FFMPEG_NAME,
+        "ffmpeg",
         "-hide_banner",
         "-loglevel",
         "error",
@@ -282,7 +281,7 @@ async def get_video_thumbnail(video_file, duration):
         duration = 3
     duration = duration // 2
     cmd = [
-        BinConfig.FFMPEG_NAME,
+        "ffmpeg",
         "-hide_banner",
         "-loglevel",
         "error",
@@ -325,7 +324,7 @@ async def get_multiple_frames_thumbnail(video_file, layout, keep_screenshots):
     await makedirs(output_dir, exist_ok=True)
     output = ospath.join(output_dir, f"{time()}.jpg")
     cmd = [
-        BinConfig.FFMPEG_NAME,
+        "ffmpeg",
         "-hide_banner",
         "-loglevel",
         "error",
@@ -520,7 +519,7 @@ class FFMpeg:
         output = f"{base_name}.{ext}"
         if retry:
             cmd = [
-                BinConfig.FFMPEG_NAME,
+                "ffmpeg",
                 "-hide_banner",
                 "-loglevel",
                 "error",
@@ -546,7 +545,7 @@ class FFMpeg:
                 cmd[14:14] = ["-c:s", "copy"]
         else:
             cmd = [
-                BinConfig.FFMPEG_NAME,
+                "ffmpeg",
                 "-hide_banner",
                 "-loglevel",
                 "error",
@@ -597,7 +596,7 @@ class FFMpeg:
         base_name = ospath.splitext(audio_file)[0]
         output = f"{base_name}.{ext}"
         cmd = [
-            BinConfig.FFMPEG_NAME,
+            "ffmpeg",
             "-hide_banner",
             "-loglevel",
             "error",
@@ -667,7 +666,7 @@ class FFMpeg:
         filter_complex += f"concat=n={len(segments)}:v=1:a=1[vout][aout]"
 
         cmd = [
-            BinConfig.FFMPEG_NAME,
+            "ffmpeg",
             "-hide_banner",
             "-loglevel",
             "error",
@@ -728,7 +727,7 @@ class FFMpeg:
         while i <= parts or start_time < duration - 4:
             out_path = f_path.replace(file_, f"{base_name}.part{i:03}{extension}")
             cmd = [
-                BinConfig.FFMPEG_NAME,
+                "ffmpeg",
                 "-hide_banner",
                 "-loglevel",
                 "error",

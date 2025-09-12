@@ -16,3 +16,6 @@ list_drives.txt
 shortener.txt
 cookies.txt
 downloads/*
+__pycache__/*
+*.pyc
+*.pyo

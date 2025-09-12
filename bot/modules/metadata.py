@@ -7,7 +7,7 @@ from aiofiles.os import path as aiopath, remove
 from aioshutil import move
 
 from .. import LOGGER, cpu_eater_lock, task_dict, task_dict_lock
-from ..core.config_manager import BinConfig
+from ..core.config_manager import Config
 from ..helper.ext_utils.bot_utils import sync_to_async
 from ..helper.ext_utils.files_utils import get_path_size
 from ..helper.ext_utils.media_utils import (
@@ -88,7 +88,7 @@ async def apply_metadata_title(
                 continue
 
             met_cmd = [
-                BinConfig.FFMPEG_NAME,
+                "ffmpeg",
                 "-hide_banner",
                 "-loglevel",
                 "error",

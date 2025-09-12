@@ -21,7 +21,7 @@ from .. import (
     task_dict_lock,
     user_data,
 )
-from ..core.config_manager import Config, BinConfig
+from ..core.config_manager import Config
 from ..core.tg_client import TgClient
 from .ext_utils.bot_utils import get_size_bytes, new_task, sync_to_async
 from .ext_utils.bulk_links import extract_bulk_links
@@ -48,8 +48,6 @@ from .ext_utils.media_utils import (
     take_ss,
 )
 from .ext_utils.metadata_utils import MetadataProcessor
-from .mirror_leech_utils.gdrive_utils.list import GoogleDriveList
-from .mirror_leech_utils.rclone_utils.list import RcloneList
 from .mirror_leech_utils.status_utils.ffmpeg_status import FFmpegStatus
 from .mirror_leech_utils.status_utils.sevenz_status import SevenZStatus
 from .telegram_helper.bot_commands import BotCommands
@@ -237,15 +235,9 @@ class TaskConfig:
                         self.link = f"mtp:{self.link}"
                     await self.is_token_exists(self.link, "dl")
         elif self.link == "rcl":
-            if not self.is_ytdlp and not self.is_jd:
-                self.link = await RcloneList(self).get_rclone_path("rcd")
-                if not is_rclone_path(self.link):
-                    raise ValueError(self.link)
+            raise ValueError("Rclone downloads not supported in MEGA-only bot")
         elif self.link == "gdl":
-            if not self.is_ytdlp and not self.is_jd:
-                self.link = await GoogleDriveList(self).get_target_id("gdd")
-                if not is_gdrive_id(self.link):
-                    raise ValueError(self.link)
+            raise ValueError("Google Drive downloads not supported in MEGA-only bot")
 
         self.user_transmission = TgClient.IS_PREMIUM_USER and (
             self.user_dict.get("USER_TRANSMISSION")
@@ -323,9 +315,7 @@ class TaskConfig:
                     config_path = self.get_config_path(self.link)
                 else:
                     config_path = None
-                self.up_dest = await RcloneList(self).get_rclone_path(
-                    "rcu", config_path
-                )
+                raise ValueError("Rclone uploads not supported in MEGA-only bot")
                 if not is_rclone_path(self.up_dest):
                     raise ValueError(self.up_dest)
             elif self.up_dest == "gdl":
@@ -337,9 +327,7 @@ class TaskConfig:
                     token_path = self.get_token_path(self.link)
                 else:
                     token_path = None
-                self.up_dest = await GoogleDriveList(self).get_target_id(
-                    "gdu", token_path
-                )
+                raise ValueError("Google Drive uploads not supported in MEGA-only bot")
                 if not is_gdrive_id(self.up_dest):
                     raise ValueError(self.up_dest)
             elif self.is_clone:
@@ -685,7 +673,7 @@ class TaskConfig:
             for ffmpeg_cmd in cmds:
                 self.proceed_count = 0
                 cmd = [
-                    BinConfig.FFMPEG_NAME,
+                    "ffmpeg",
                     "-hide_banner",
                     "-loglevel",
                     "error",
