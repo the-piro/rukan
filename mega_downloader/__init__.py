@@ -1,0 +1,1 @@
+"""Standalone Mega downloader module."""
