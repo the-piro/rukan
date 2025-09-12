@@ -16,3 +16,11 @@ list_drives.txt
 shortener.txt
 cookies.txt
 downloads/*
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
