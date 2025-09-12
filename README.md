@@ -39,6 +39,11 @@ DEBUG=false                    # Default: false
    pip install -r requirements.txt
    ```
 
+**Note**: There may be compatibility issues with `mega.py` on Python 3.12 due to deprecated `asyncio.coroutine`. If you encounter this, try:
+- Using Python 3.10 or 3.11
+- Installing compatible versions: `pip install "tenacity>=8.0.0" mega.py`
+- Or using an alternative MEGA SDK
+
 ## Usage
 
 ### Telegram Bot
