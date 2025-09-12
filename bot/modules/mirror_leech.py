@@ -8,38 +8,15 @@ from .. import DOWNLOAD_DIR, LOGGER, bot_loop, task_dict_lock
 from ..helper.ext_utils.bot_utils import (
     COMMAND_USAGE,
     arg_parser,
-    get_content_type,
     sync_to_async,
 )
-from ..helper.ext_utils.exceptions import DirectDownloadLinkException
 from ..helper.ext_utils.links_utils import (
-    is_gdrive_id,
-    is_gdrive_link,
     is_mega_link,
-    is_magnet,
-    is_rclone_path,
     is_telegram_link,
-    is_url,
 )
 from ..helper.ext_utils.task_manager import pre_task_check
 from ..helper.listeners.task_listener import TaskListener
-from ..helper.mirror_leech_utils.download_utils.aria2_download import (
-    add_aria2_download,
-)
-from ..helper.mirror_leech_utils.download_utils.direct_downloader import (
-    add_direct_download,
-)
-from ..helper.mirror_leech_utils.download_utils.direct_link_generator import (
-    direct_link_generator,
-)
-from ..helper.mirror_leech_utils.download_utils.gd_download import add_gd_download
-from ..helper.mirror_leech_utils.download_utils.jd_download import add_jd_download
 from ..helper.mirror_leech_utils.download_utils.mega_download import add_mega_download
-from ..helper.mirror_leech_utils.download_utils.nzb_downloader import add_nzb
-from ..helper.mirror_leech_utils.download_utils.qbit_download import add_qb_torrent
-from ..helper.mirror_leech_utils.download_utils.rclone_download import (
-    add_rclone_download,
-)
 from ..helper.mirror_leech_utils.download_utils.telegram_download import (
     TelegramDownloadHelper,
 )
@@ -49,6 +26,7 @@ from ..helper.telegram_helper.message_utils import (
     get_tg_link_message,
     send_message,
 )
+)
 
 
 class Mirror(TaskListener):
@@ -56,10 +34,7 @@ class Mirror(TaskListener):
         self,
         client,
         message,
-        is_qbit=False,
         is_leech=False,
-        is_jd=False,
-        is_nzb=False,
         same_dir=None,
         bulk=None,
         multi_tag=None,
@@ -76,10 +51,7 @@ class Mirror(TaskListener):
         self.same_dir = same_dir
         self.bulk = bulk
         super().__init__()
-        self.is_qbit = is_qbit
         self.is_leech = is_leech
-        self.is_jd = is_jd
-        self.is_nzb = is_nzb
 
     async def new_event(self):
         text = self.message.text.split("\n")
@@ -343,16 +315,10 @@ class Mirror(TaskListener):
             or is_telegram_link(self.link)
             and reply_to is None
             or file_ is None
-            and not is_url(self.link)
-            and not is_magnet(self.link)
-            and not await aiopath.exists(self.link)
-            and not is_rclone_path(self.link)
-            and not is_gdrive_id(self.link)
-            and not is_gdrive_link(self.link)
             and not is_mega_link(self.link)
         ):
             await send_message(
-                self.message, COMMAND_USAGE["mirror"][0], COMMAND_USAGE["mirror"][1]
+                self.message, "Send a MEGA link or reply to a Telegram file to leech."
             )
             await self.remove_from_same_dir()
             await delete_links(self.message)
@@ -371,86 +337,18 @@ class Mirror(TaskListener):
 
         self._set_mode_engine()
 
-        if (
-            not self.is_jd
-            and not self.is_nzb
-            and not self.is_qbit
-            and not is_magnet(self.link)
-            and not is_rclone_path(self.link)
-            and not is_gdrive_link(self.link)
-            and not self.link.endswith(".torrent")
-            and file_ is None
-            and not is_gdrive_id(self.link)
-            and not is_mega_link(self.link)
-        ):
-            content_type = await get_content_type(self.link)
-            if content_type is None or re_match(r"text/html|text/plain", content_type):
-                try:
-                    self.link = await sync_to_async(direct_link_generator, self.link)
-                    if isinstance(self.link, tuple):
-                        self.link, headers = self.link
-                    elif isinstance(self.link, str):
-                        LOGGER.info(f"Generated link: {self.link}")
-                except DirectDownloadLinkException as e:
-                    e = str(e)
-                    if "This link requires a password!" not in e:
-                        LOGGER.info(e)
-                    if e.startswith("ERROR:"):
-                        await send_message(self.message, e)
-                        await self.remove_from_same_dir()
-                        await delete_links(self.message)
-                        return
-                except Exception as e:
-                    await send_message(self.message, e)
-                    await self.remove_from_same_dir()
-                    await delete_links(self.message)
-                    return
-
         await delete_links(self.message)
 
         if file_ is not None:
             await TelegramDownloadHelper(self).add_download(
                 reply_to, f"{path}/", session
             )
-        elif isinstance(self.link, dict):
-            await add_direct_download(self, path)
-        elif self.is_jd:
-            await add_jd_download(self, path)
-        elif self.is_qbit:
-            await add_qb_torrent(self, path, ratio, seed_time)
-        elif self.is_nzb:
-            await add_nzb(self, path)
-        elif is_rclone_path(self.link):
-            await add_rclone_download(self, f"{path}/")
-        elif is_gdrive_link(self.link) or is_gdrive_id(self.link):
-            await add_gd_download(self, path)
         elif is_mega_link(self.link):
             await add_mega_download(self, f"{path}/")
-        else:
-            ussr = args["-au"]
-            pssw = args["-ap"]
-            if ussr or pssw:
-                auth = f"{ussr}:{pssw}"
-                headers += (
-                    f" authorization: Basic {b64encode(auth.encode()).decode('ascii')}"
-                )
-            await add_aria2_download(self, path, headers, ratio, seed_time)
 
 
 async def mirror(client, message):
     bot_loop.create_task(Mirror(client, message).new_event())
-
-
-async def qb_mirror(client, message):
-    bot_loop.create_task(Mirror(client, message, is_qbit=True).new_event())
-
-
-async def jd_mirror(client, message):
-    bot_loop.create_task(Mirror(client, message, is_jd=True).new_event())
-
-
-async def nzb_mirror(client, message):
-    bot_loop.create_task(Mirror(client, message, is_nzb=True).new_event())
 
 
 async def leech(client, message):
@@ -458,19 +356,3 @@ async def leech(client, message):
         await message.reply("The Leech command is currently disabled.")
         return
     bot_loop.create_task(Mirror(client, message, is_leech=True).new_event())
-
-
-async def qb_leech(client, message):
-    bot_loop.create_task(
-        Mirror(client, message, is_qbit=True, is_leech=True).new_event()
-    )
-
-
-async def jd_leech(client, message):
-    bot_loop.create_task(Mirror(client, message, is_leech=True, is_jd=True).new_event())
-
-
-async def nzb_leech(client, message):
-    bot_loop.create_task(
-        Mirror(client, message, is_leech=True, is_nzb=True).new_event()
-    )
