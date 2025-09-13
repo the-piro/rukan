@@ -350,22 +350,6 @@ class TelegramUploader:
                 self._msgs_dict[m.link] = m.caption
         self._sent_msg = msgs_list[-1]
 
-    async def _copy_media(self):
-        # Only send to user PM if leech_dest is not set
-        if not self._listener.leech_dest:
-            try:
-                await TgClient.bot.copy_message(
-                    chat_id=self._listener.user_id,
-                    from_chat_id=self._sent_msg.chat.id,
-                    message_id=self._sent_msg.id,
-                    reply_to_message_id=(
-                        self._listener.pm_msg.id if self._listener.pm_msg else None
-                    ),
-                )
-            except Exception as err:
-                if not self._listener.is_cancelled:
-                    LOGGER.error(f"Failed To Send in BotPM:\n{str(err)}")
-
     async def upload(self):
         await self._user_settings()
         res = await self._msg_to_reply()
@@ -482,25 +466,8 @@ class TelegramUploader:
         retry=retry_if_exception_type(Exception),
     )
     async def _upload_file(self, cap_mono, file, o_path, force_document=False):
-        if self._sent_msg is None:
-            LOGGER.error("Cannot upload: _sent_msg is None")
-            await self._listener.on_upload_error(
-                "Upload failed: Message not initialized"
-            )
-            return
-
-        if not hasattr(self._sent_msg, "chat") or self._sent_msg.chat is None:
-            LOGGER.error("Cannot upload: _sent_msg.chat is None")
-            await self._listener.on_upload_error(
-                "Upload failed: Invalid message object"
-            )
-            return
-
-        if (
-            self._thumb is not None
-            and not await aiopath.exists(self._thumb)
-            and self._thumb != "none"
-        ):
+        # Always send to exactly one destination: leech_dest if set, else user_id
+        if self._thumb is not None and not await aiopath.exists(self._thumb) and self._thumb != "none":
             self._thumb = None
         thumb = self._thumb
         self._is_corrupted = False
@@ -515,30 +482,29 @@ class TelegramUploader:
                 elif is_audio and not is_video:
                     thumb = await get_audio_thumbnail(self._up_path)
 
-            if (
-                self._listener.as_doc
-                or force_document
-                or (not is_video and not is_audio and not is_image)
-            ):
-                key = "documents"
-                if is_video and thumb is None:
-                    thumb = await get_video_thumbnail(self._up_path, None)
+            # Choose destination
+            if self._listener.leech_dest:
+                dest = self._listener.leech_dest
+                if not isinstance(dest, int):
+                    if "|" in str(dest):
+                        dest, _ = str(dest).split("|", 1)
+                    if str(dest).lstrip("-").isdigit():
+                        dest = int(dest)
+            else:
+                dest = self._listener.user_id
 
-                if self._listener.is_cancelled:
-                    return
-                if thumb == "none":
-                    thumb = None
-                self._sent_msg = await self._sent_msg.reply_document(
+            # Upload to chosen dest (never reply/copy to another!)
+            if self._listener.as_doc or force_document or (not is_video and not is_audio and not is_image):
+                self._sent_msg = await TgClient.bot.send_document(
+                    chat_id=dest,
                     document=self._up_path,
-                    quote=True,
-                    thumb=thumb,
                     caption=cap_mono,
+                    thumb=thumb if thumb != "none" else None,
                     force_document=True,
                     disable_notification=True,
                     progress=self._upload_progress,
                 )
             elif is_video:
-                key = "videos"
                 duration = (await get_media_info(self._up_path))[0]
                 if thumb is None and self._listener.thumbnail_layout:
                     thumb = await get_multiple_frames_thumbnail(
@@ -554,106 +520,54 @@ class TelegramUploader:
                 else:
                     width = 480
                     height = 320
-                if self._listener.is_cancelled:
-                    return
-                if thumb == "none":
-                    thumb = None
-                self._sent_msg = await self._sent_msg.reply_video(
+                self._sent_msg = await TgClient.bot.send_video(
+                    chat_id=dest,
                     video=self._up_path,
-                    quote=True,
                     caption=cap_mono,
                     duration=duration,
                     width=width,
                     height=height,
-                    thumb=thumb,
+                    thumb=thumb if thumb != "none" else None,
                     supports_streaming=True,
                     disable_notification=True,
                     progress=self._upload_progress,
                 )
             elif is_audio:
-                key = "audios"
                 duration, artist, title = await get_media_info(self._up_path)
-                if self._listener.is_cancelled:
-                    return
-                if thumb == "none":
-                    thumb = None
-                self._sent_msg = await self._sent_msg.reply_audio(
+                self._sent_msg = await TgClient.bot.send_audio(
+                    chat_id=dest,
                     audio=self._up_path,
-                    quote=True,
                     caption=cap_mono,
                     duration=duration,
                     performer=artist,
                     title=title,
-                    thumb=thumb,
+                    thumb=thumb if thumb != "none" else None,
                     disable_notification=True,
                     progress=self._upload_progress,
                 )
             else:
-                key = "photos"
-                if self._listener.is_cancelled:
-                    return
-                self._sent_msg = await self._sent_msg.reply_photo(
+                self._sent_msg = await TgClient.bot.send_photo(
+                    chat_id=dest,
                     photo=self._up_path,
-                    quote=True,
                     caption=cap_mono,
                     disable_notification=True,
                     progress=self._upload_progress,
                 )
 
-            # DUPLICATE FIX LOGIC:
-            # If leech_dest is set, send/copy only to leech_dest. If not, only user PM.
-            if self._sent_msg:
-                if self._listener.leech_dest:
-                    try:
-                        leech_dest = self._listener.leech_dest
-                        if not isinstance(leech_dest, int):
-                            if "|" in str(leech_dest):
-                                leech_dest, _ = str(leech_dest).split("|", 1)
-                            if leech_dest.lstrip("-").isdigit():
-                                leech_dest = int(leech_dest)
-                        await TgClient.bot.copy_message(
-                            chat_id=leech_dest,
-                            from_chat_id=self._sent_msg.chat.id,
-                            message_id=self._sent_msg.id,
-                        )
-                    except Exception as e:
-                        if not self._listener.is_cancelled:
-                            LOGGER.error(
-                                f"Failed to forward to {self._listener.leech_dest}: {e}"
-                            )
-                            await send_message(
-                                self._listener.user_id,
-                                f"Failed to forward to {self._listener.leech_dest}\n{e}",
-                            )
-                else:
-                    await self._copy_media()
-
-            if (
-                self._thumb is None
-                and thumb is not None
-                and await aiopath.exists(thumb)
-            ):
+            if self._thumb is None and thumb is not None and await aiopath.exists(thumb):
                 await remove(thumb)
         except (FloodWait, FloodPremiumWait) as f:
             LOGGER.warning(str(f))
             await sleep(f.value * 1.3)
-            if (
-                self._thumb is None
-                and thumb is not None
-                and await aiopath.exists(thumb)
-            ):
+            if self._thumb is None and thumb is not None and await aiopath.exists(thumb):
                 await remove(thumb)
             return await self._upload_file(cap_mono, file, o_path)
         except Exception as err:
-            if (
-                self._thumb is None
-                and thumb is not None
-                and await aiopath.exists(thumb)
-            ):
+            if self._thumb is None and thumb is not None and await aiopath.exists(thumb):
                 await remove(thumb)
             err_type = "RPCError: " if isinstance(err, RPCError) else ""
             LOGGER.error(f"{err_type}{err}. Path: {self._up_path}", exc_info=True)
-            if isinstance(err, BadRequest) and key != "documents":
+            if isinstance(err, BadRequest):
                 LOGGER.error(f"Retrying As Document. Path: {self._up_path}")
                 return await self._upload_file(cap_mono, file, o_path, True)
             raise err
