@@ -49,7 +49,6 @@ from ...telegram_helper.message_utils import delete_message
 
 LOGGER = getLogger(__name__)
 
-
 class TelegramUploader:
     def __init__(self, listener, path):
         self._last_uploaded = 0
@@ -117,16 +116,13 @@ class TelegramUploader:
 
         # If in group/supergroup, no dump chat set, handle user leech_dest or botpm
         if is_group and not dump_chat:
-            dest = None
-            if user_leech_dest:
-                dest = user_leech_dest
-                if not isinstance(dest, int):
-                    if "|" in str(dest):
-                        dest, _ = str(dest).split("|", 1)
-                    if str(dest).lstrip("-").isdigit():
-                        dest = int(dest)
-            else:
-                dest = self._listener.user_id
+            # Don't upload in group! Only send to leech_dest or PM
+            dest = user_leech_dest if user_leech_dest else self._listener.user_id
+            if not isinstance(dest, int):
+                if "|" in str(dest):
+                    dest, _ = str(dest).split("|", 1)
+                if str(dest).lstrip("-").isdigit():
+                    dest = int(dest)
             try:
                 self._sent_msg = await TgClient.bot.send_message(
                     chat_id=dest,
@@ -355,8 +351,9 @@ class TelegramUploader:
         self._sent_msg = msgs_list[-1]
 
     async def _copy_media(self):
-        try:
-            if self._bot_pm:
+        # Only send to user PM if leech_dest is not set
+        if not self._listener.leech_dest:
+            try:
                 await TgClient.bot.copy_message(
                     chat_id=self._listener.user_id,
                     from_chat_id=self._sent_msg.chat.id,
@@ -365,9 +362,9 @@ class TelegramUploader:
                         self._listener.pm_msg.id if self._listener.pm_msg else None
                     ),
                 )
-        except Exception as err:
-            if not self._listener.is_cancelled:
-                LOGGER.error(f"Failed To Send in BotPM:\n{str(err)}")
+            except Exception as err:
+                if not self._listener.is_cancelled:
+                    LOGGER.error(f"Failed To Send in BotPM:\n{str(err)}")
 
     async def upload(self):
         await self._user_settings()
@@ -603,30 +600,9 @@ class TelegramUploader:
                     progress=self._upload_progress,
                 )
 
-            if (
-                not self._listener.is_cancelled
-                and self._media_group
-                and (self._sent_msg.video or self._sent_msg.document)
-            ):
-                key = "documents" if self._sent_msg.document else "videos"
-                if match := re_match(r".+(?=\.0*\d+$)|.+(?=\.part\d+\..+$)", o_path):
-                    pname = match.group(0)
-                    if pname in self._media_dict[key].keys():
-                        self._media_dict[key][pname].append(
-                            [self._sent_msg.chat.id, self._sent_msg.id]
-                        )
-                    else:
-                        self._media_dict[key][pname] = [
-                            [self._sent_msg.chat.id, self._sent_msg.id]
-                        ]
-                    msgs = self._media_dict[key][pname]
-                    if len(msgs) == 10:
-                        await self._send_media_group(pname, key, msgs)
-                    else:
-                        self._last_msg_in_group = True
-
+            # DUPLICATE FIX LOGIC:
+            # If leech_dest is set, send/copy only to leech_dest. If not, only user PM.
             if self._sent_msg:
-                await self._copy_media()
                 if self._listener.leech_dest:
                     try:
                         leech_dest = self._listener.leech_dest
@@ -649,6 +625,8 @@ class TelegramUploader:
                                 self._listener.user_id,
                                 f"Failed to forward to {self._listener.leech_dest}\n{e}",
                             )
+                else:
+                    await self._copy_media()
 
             if (
                 self._thumb is None
