@@ -109,6 +109,42 @@ class TelegramUploader:
             self._thumb = None
 
     async def _msg_to_reply(self):
+        # --- Custom logic for group with no dump chat ---
+        is_group = getattr(self._listener.message.chat, "type", None)
+        is_group = is_group and is_group.name in ("GROUP", "SUPERGROUP")
+        dump_chat = getattr(Config, "LEECH_DUMP_CHAT", None)
+        user_leech_dest = getattr(self._listener, "leech_dest", None)
+
+        # If in group/supergroup, no dump chat set, handle user leech_dest or botpm
+        if is_group and not dump_chat:
+            dest = None
+            if user_leech_dest:
+                dest = user_leech_dest
+                if not isinstance(dest, int):
+                    if "|" in str(dest):
+                        dest, _ = str(dest).split("|", 1)
+                    if str(dest).lstrip("-").isdigit():
+                        dest = int(dest)
+            else:
+                dest = self._listener.user_id
+            try:
+                self._sent_msg = await TgClient.bot.send_message(
+                    chat_id=dest,
+                    text="➲ <b><u>Leech Started :</u></b>\n┃\n┠ <b>User :</b> {0} ( #ID{1} )\n┖ <b>Source :</b> <a href='{2}'>Click Here</a>".format(
+                        self._listener.user.mention,
+                        self._listener.user_id,
+                        getattr(self._listener, "source_url", "")
+                    ),
+                    disable_web_page_preview=True,
+                    message_thread_id=getattr(self._listener, "chat_thread_id", None),
+                    disable_notification=True,
+                )
+                return True
+            except Exception as e:
+                await self._listener.on_upload_error(str(e))
+                return False
+
+        # --- Original logic follows ---
         if self._listener.up_dest:
             msg_link = (
                 self._listener.message.link if self._listener.is_super_chat else ""
