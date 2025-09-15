@@ -158,6 +158,7 @@ class Mirror(TaskListener):
         # Short-circuit for Video Tools (-vt) flag
         if args["-vt"]:
             from .video_tools import open_video_tools_menu
+
             await open_video_tools_menu(self.client, self.message, text[0])
             return
 
@@ -184,7 +185,7 @@ class Mirror(TaskListener):
         self.thumbnail_layout = args["-tl"]
         self.as_doc = args["-doc"]
         self.as_med = args["-med"]
-        self.folder_name = f"/{args["-m"]}".rstrip("/") if len(args["-m"]) > 0 else ""
+        self.folder_name = f"/{args['-m']}".rstrip("/") if len(args["-m"]) > 0 else ""
         self.bot_trans = args["-bt"]
         self.user_trans = args["-ut"]
         self.is_yt = args["-yt"]
