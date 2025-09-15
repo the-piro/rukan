@@ -52,6 +52,9 @@ ffset_options = [
     "VIDEO_METADATA",
     "SUBTITLE_METADATA",
 ]
+media_tools_options = [
+    "WATERMARK_SETTINGS",
+]
 advanced_options = [
     "EXCLUDED_EXTENSIONS",
     "NAME_SWAP",
@@ -255,6 +258,23 @@ Here I will explain how to use mltb.* which is reference to files you want to wo
         "User's YT-DLP Cookie File to authenticate access to websites and youtube.",
         "<i>Send your cookie file (e.g., cookies.txt or abc.txt).</i> \n┖ <b>Time Left :</b> <code>60 sec</code>",
     ),
+    "WATERMARK_SETTINGS": (
+        "Dict",
+        "Configure watermark settings including text, color, size, position, and opacity. Font is managed separately via upload.",
+        """<i>Send watermark settings as a dictionary. Font will be the uploaded font file, not specified here.</i>
+
+<b>📋 Example:</b>
+<code>{"text": "Sample Text", "color": "#FFFFFF", "size": 30, "position": "bottom-right", "opacity": 0.7}</code>
+
+<b>🎛 Available Options:</b>
+• <code>text</code> - Text to display (string)
+• <code>color</code> - Text color in hex format (e.g., "#FFFFFF")  
+• <code>size</code> - Font size in pixels (number)
+• <code>position</code> - Position on image ("top-left", "top-right", "bottom-left", "bottom-right", "center")
+• <code>opacity</code> - Transparency (0.0 to 1.0)
+
+⏱ <b>Time Left:</b> <code>60 sec</code>""",
+    ),
 }
 
 
@@ -273,6 +293,7 @@ async def get_user_settings(from_user, stype="main"):
         buttons.data_button("Mirror Settings", f"userset {user_id} mirror")
         buttons.data_button("Leech Settings", f"userset {user_id} leech")
         buttons.data_button("FF Media Settings", f"userset {user_id} ffset")
+        buttons.data_button("Media Tools Settings", f"userset {user_id} mediatools")
         buttons.data_button(
             "Mics Settings", f"userset {user_id} advanced", position="l_body"
         )
@@ -687,6 +708,38 @@ async def get_user_settings(from_user, stype="main"):
 ┠ <b>Video Metadata</b> → {display_video_meta}
 ┖ <b>Subtitle Metadata</b> → {display_subtitle_meta}"""
 
+    elif stype == "mediatools":
+        # Watermark settings
+        buttons.data_button("Watermark Settings", f"userset {user_id} menu WATERMARK_SETTINGS")
+        watermark_setting = user_dict.get("WATERMARK_SETTINGS")
+        display_watermark = "<b>Not Set</b>"
+        if isinstance(watermark_setting, dict) and watermark_setting:
+            display_watermark = ", ".join(
+                f"{k}={escape(str(v))}" for k, v in watermark_setting.items()
+            )
+            display_watermark = f"<code>{display_watermark}</code>"
+
+        # Check for font file existence
+        font_ttf_path = f"fonts/{user_id}.ttf"
+        font_otf_path = f"fonts/{user_id}.otf"
+        font_status = "Not Exists"
+        if await aiopath.exists(font_ttf_path):
+            font_status = "Exists (.ttf)"
+        elif await aiopath.exists(font_otf_path):
+            font_status = "Exists (.otf)"
+        
+        buttons.data_button("Set Watermark Font", f"userset {user_id} fontfile WATERMARK_FONT")
+
+        buttons.data_button("Back", f"userset {user_id} back", "footer")
+        buttons.data_button("Close", f"userset {user_id} close", "footer")
+        btns = buttons.build_menu(2)
+
+        text = f"""⌬ <b>Media Tools Settings :</b>
+┟ <b>Name</b> → {user_name}
+┃
+┠ <b>Watermark Settings</b> → {display_watermark}
+┖ <b>Watermark Font</b> → <b>{font_status}</b>"""
+
     elif stype == "advanced":
         buttons.data_button(
             "Excluded Extensions", f"userset {user_id} menu EXCLUDED_EXTENSIONS"
@@ -830,6 +883,36 @@ async def add_file(_, message, ftype, rfunc):
         await makedirs(cpath, exist_ok=True)
         des_dir = f"{cpath}/cookies.txt"
         await message.download(file_name=des_dir)
+    elif ftype == "WATERMARK_FONT":
+        # Handle font file upload (.ttf or .otf)
+        fpath = f"{getcwd()}/fonts/"
+        await makedirs(fpath, exist_ok=True)
+        
+        # Get file extension
+        file_name = message.document.file_name if message.document else ""
+        if not file_name.lower().endswith(('.ttf', '.otf')):
+            await send_message(message, "❌ Only .ttf and .otf font files are allowed!")
+            await delete_message(message)
+            await rfunc()
+            return
+            
+        # Remove any existing font files for this user
+        old_ttf = f"{fpath}{user_id}.ttf"
+        old_otf = f"{fpath}{user_id}.otf"
+        if await aiopath.exists(old_ttf):
+            await remove(old_ttf)
+        if await aiopath.exists(old_otf):
+            await remove(old_otf)
+            
+        # Determine extension and save new font
+        ext = ".ttf" if file_name.lower().endswith('.ttf') else ".otf"
+        des_dir = f"{fpath}{user_id}{ext}"
+        await message.download(file_name=des_dir)
+        
+        await delete_message(message)
+        await rfunc()
+        return
+        
     await delete_message(message)
     update_user_ldata(user_id, ftype, des_dir)
     await rfunc()
@@ -953,6 +1036,46 @@ async def set_option(_, message, option, rfunc):
         else:
             value = {}
 
+    elif option == "WATERMARK_SETTINGS":
+        if value.startswith("{") and value.endswith("}"):
+            try:
+                value = eval(sub(r"\s+", " ", value))
+                # Validate watermark settings
+                if not isinstance(value, dict):
+                    await send_message(message, "Watermark settings must be a dictionary!")
+                    return
+                    
+                # Validate allowed keys and types
+                allowed_keys = {"text", "color", "size", "position", "opacity"}
+                for key in value.keys():
+                    if key not in allowed_keys:
+                        await send_message(message, f"Invalid key '{key}'. Allowed keys: {', '.join(allowed_keys)}")
+                        return
+                        
+                # Validate specific values
+                if "color" in value and not (isinstance(value["color"], str) and value["color"].startswith("#")):
+                    await send_message(message, "Color must be a hex string starting with # (e.g., '#FFFFFF')")
+                    return
+                    
+                if "size" in value and not isinstance(value["size"], (int, float)):
+                    await send_message(message, "Size must be a number")
+                    return
+                    
+                if "position" in value and value["position"] not in ["top-left", "top-right", "bottom-left", "bottom-right", "center"]:
+                    await send_message(message, "Position must be one of: top-left, top-right, bottom-left, bottom-right, center")
+                    return
+                    
+                if "opacity" in value and not (isinstance(value["opacity"], (int, float)) and 0.0 <= value["opacity"] <= 1.0):
+                    await send_message(message, "Opacity must be a number between 0.0 and 1.0")
+                    return
+                    
+            except Exception as e:
+                await send_message(message, f"Error parsing watermark settings: {str(e)}")
+                return
+        else:
+            await send_message(message, "Watermark settings must be a dictionary!")
+            return
+
     elif option in ["UPLOAD_PATHS", "FFMPEG_CMDS", "YT_DLP_OPTIONS"]:
         if value.startswith("{") and value.endswith("}"):
             try:
@@ -1016,6 +1139,8 @@ async def get_menu(option, message, user_id):
         back_to = "yttools"
     elif option in ffset_options:
         back_to = "ffset"
+    elif option in media_tools_options:
+        back_to = "mediatools"
     elif option in advanced_options:
         back_to = "advanced"
     else:
@@ -1043,6 +1168,18 @@ async def get_menu(option, message, user_id):
 
         if val is None:
             val = "<b>Not Exists</b>"
+
+    elif option == "WATERMARK_SETTINGS":
+        current_watermark = user_dict.get(option)
+        if isinstance(current_watermark, dict) and current_watermark:
+            val = ", ".join(
+                f"{k}={escape(str(v))}" for k, v in current_watermark.items()
+            )
+            val = f"<code>{val}</code>"
+        elif not current_watermark:
+            val = "<b>Not Set</b>"
+        else:
+            val = "<b>Invalid Format</b>"
 
     if option == "METADATA":
         text = f"""⌬ <b><u>Menu Settings :</u></b>
@@ -1125,6 +1262,8 @@ async def edit_user_settings(client, query):
     rclone_conf = f"rclone/{user_id}.conf"
     token_pickle = f"tokens/{user_id}.pickle"
     yt_cookie_path = f"cookies/{user_id}/cookies.txt"
+    font_ttf_path = f"fonts/{user_id}.ttf"
+    font_otf_path = f"fonts/{user_id}.otf"
 
     user_dict = user_data.get(user_id, {})
     if user_id != int(data[1]):
@@ -1136,6 +1275,7 @@ async def edit_user_settings(client, query):
         "mirror",
         "leech",
         "ffset",
+        "mediatools",
         "advanced",
         "gdrive",
         "rclone",
@@ -1178,6 +1318,26 @@ async def edit_user_settings(client, query):
             rfunc,
             photo=data[3] == "THUMBNAIL",
             document=data[3] != "THUMBNAIL",
+        )
+    elif data[2] == "fontfile":
+        await query.answer()
+        buttons = ButtonMaker()
+        text = "<i>Send your font file (.ttf or .otf only). Only one font is saved per user; uploading a new one removes the old.</i> \n┖ <b>Time Left :</b> <code>60 sec</code>"
+        buttons.data_button("Stop", f"userset {user_id} menu WATERMARK_SETTINGS stop")
+        buttons.data_button("Back", f"userset {user_id} mediatools", "footer")
+        buttons.data_button("Close", f"userset {user_id} close", "footer")
+        prompt_title = "Watermark Font"
+        new_message_text = f"⌬ <b>Set {prompt_title}</b>\n\n{text}"
+        await edit_message(message, new_message_text, buttons.build_menu(1))
+        rfunc = partial(update_user_settings, query, stype="mediatools")
+        pfunc = partial(add_file, ftype="WATERMARK_FONT", rfunc=rfunc)
+        await event_handler(
+            client,
+            query,
+            pfunc,
+            rfunc,
+            photo=False,
+            document=True,
         )
     elif data[2] in ["set", "addone", "rmone"]:
         await query.answer()
@@ -1244,7 +1404,7 @@ async def edit_user_settings(client, query):
             for k in list(user_dict.keys()):
                 if k not in ("SUDO", "AUTH", "VERIFY_TOKEN", "VERIFY_TIME"):
                     del user_dict[k]
-            for fpath in [thumb_path, rclone_conf, token_pickle, yt_cookie_path]:
+            for fpath in [thumb_path, rclone_conf, token_pickle, yt_cookie_path, font_ttf_path, font_otf_path]:
                 if await aiopath.exists(fpath):
                     await remove(fpath)
             await update_user_settings(query)
