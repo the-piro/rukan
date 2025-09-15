@@ -729,6 +729,10 @@ async def get_user_settings(from_user, stype="main"):
             font_status = "Exists (.otf)"
         
         buttons.data_button("Set Watermark Font", f"userset {user_id} fontfile WATERMARK_FONT")
+        
+        # Add remove font button if font exists
+        if font_status != "Not Exists":
+            buttons.data_button("Remove Font", f"userset {user_id} rmfont")
 
         buttons.data_button("Back", f"userset {user_id} back", "footer")
         buttons.data_button("Close", f"userset {user_id} close", "footer")
@@ -1339,6 +1343,16 @@ async def edit_user_settings(client, query):
             photo=False,
             document=True,
         )
+    elif data[2] == "rmfont":
+        await query.answer("Font Removed!", show_alert=True)
+        # Remove font files
+        font_ttf_path = f"fonts/{user_id}.ttf"
+        font_otf_path = f"fonts/{user_id}.otf"
+        if await aiopath.exists(font_ttf_path):
+            await remove(font_ttf_path)
+        if await aiopath.exists(font_otf_path):
+            await remove(font_otf_path)
+        await update_user_settings(query, stype="mediatools")
     elif data[2] in ["set", "addone", "rmone"]:
         await query.answer()
         buttons = ButtonMaker()

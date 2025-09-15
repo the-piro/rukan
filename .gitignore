@@ -10,9 +10,14 @@ thumbnails/*
 rclone/*
 tokens/*
 cookies/*
+fonts/*
 mediainfo/*
 sabnzbd/*
 list_drives.txt
 shortener.txt
 cookies.txt
 downloads/*
+__pycache__/*
+*/__pycache__/*
+**/__pycache__/*
+*.pyc
