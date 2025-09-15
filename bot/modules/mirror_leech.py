@@ -155,12 +155,6 @@ class Mirror(TaskListener):
             await send_message(self.message, "FFmpeg commands are currently disabled.")
             return
 
-        # Handle Video Tools flag (-vt)
-        if args.get("-vt", False):
-            from .video_tools import show_video_tools_menu
-            await show_video_tools_menu(self.client, self.message)
-            return
-
         self.select = args["-s"]
         self.seed = args["-d"]
         self.name = args["-n"]
@@ -188,6 +182,7 @@ class Mirror(TaskListener):
         self.bot_trans = args["-bt"]
         self.user_trans = args["-ut"]
         self.is_yt = args["-yt"]
+        self.video_tools = args["-vt"]
         self.metadata_dict = self.default_metadata_dict.copy()
         self.audio_metadata_dict = self.audio_metadata_dict.copy()
         self.video_metadata_dict = self.video_metadata_dict.copy()

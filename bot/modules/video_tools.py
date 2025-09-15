@@ -121,7 +121,7 @@ async def video_tools_handler(client, message):
 
 @new_task
 async def show_video_tools_menu(client, message):
-    """Show the main Video Tools menu"""
+    """Show the main Video Tools menu - called directly from command or via -vt flag"""
     user_id = message.from_user.id
     
     # Create Video Tools menu
