@@ -344,6 +344,9 @@ def add_handlers():
         CallbackQueryHandler(edit_user_settings, filters=regex("^userset"))
     )
     TgClient.bot.add_handler(
+        CallbackQueryHandler(video_tools_callback, filters=regex("^vt"))
+    )
+    TgClient.bot.add_handler(
         MessageHandler(
             ytdl,
             filters=command(BotCommands.YtdlCommand, case_sensitive=True)

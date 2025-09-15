@@ -36,6 +36,7 @@ from .shell import run_shell
 from .stats import bot_stats, stats_pages, get_packages_version
 from .status import task_status, status_pages
 from .users_settings import get_users_settings, edit_user_settings, send_user_settings
+from .video_tools import open_video_tools_menu, video_tools_callback
 from .ytdlp import ytdl, ytdl_leech
 
 __all__ = [
@@ -99,6 +100,8 @@ __all__ = [
     "get_users_settings",
     "edit_user_settings",
     "send_user_settings",
+    "open_video_tools_menu",
+    "video_tools_callback",
     "ytdl",
     "ytdl_leech",
 ]
