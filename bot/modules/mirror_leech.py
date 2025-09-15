@@ -111,6 +111,7 @@ class Mirror(TaskListener):
             "-bt": False,
             "-ut": False,
             "-yt": False,
+            "-vt": False,
             "-i": 0,
             "-sp": 0,
             "link": "",
@@ -152,6 +153,12 @@ class Mirror(TaskListener):
 
         if Config.DISABLE_FF_MODE and args.get("-ff"):
             await send_message(self.message, "FFmpeg commands are currently disabled.")
+            return
+
+        # Handle Video Tools flag (-vt)
+        if args.get("-vt", False):
+            from .video_tools import show_video_tools_menu
+            await show_video_tools_menu(self.client, self.message)
             return
 
         self.select = args["-s"]

@@ -359,6 +359,16 @@ def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
+            show_video_tools_menu,
+            filters=command(BotCommands.VideoToolsCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(vt_callback_handler, filters=regex("^vt"))
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
             hydra_search,
             filters=command(BotCommands.NzbSearchCommand, case_sensitive=True)
             & CustomFilters.authorized,

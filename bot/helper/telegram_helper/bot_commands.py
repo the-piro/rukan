@@ -50,6 +50,7 @@ class BotCommands:
         "Select": ["select", "sel"],
         "NzbSearch": "nzbsearch",
         "Plugins": "plugins",
+        "VideoTools": ["videotools", "vt"],
     }
 
     @classmethod

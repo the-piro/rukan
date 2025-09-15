@@ -131,6 +131,16 @@ extract_zip = """<b>Extract/Zip</b>: -e -z
 /cmd link -z password -e (extract and zip password protected)
 Note: When both extract and zip added with cmd it will extract first and then zip, so always extract first"""
 
+video_tools = """<b>Video Tools</b>: -vt
+
+/cmd -vt (Open Video Tools menu)
+
+Opens an interactive menu for video processing tools:
+• <b>Compress</b> - Reduce video file size with quality options (144p, 240p, 360p, 480p, 720p, 1080p)
+• More tools coming soon (watermark, merge, etc.)
+
+Note: Videos won't be upscaled to prevent quality loss. If source resolution is lower than selected target, it will maintain source resolution but still compress for file size reduction."""
+
 join = """<b>Join Splitted Files</b>: -j
 
 This option will only work before extract and zip, so mostly it will be used with -m argument (samedir)
@@ -306,6 +316,7 @@ YT_HELP_DICT = {
     "Leech-Type": leech_as,
     "FFmpeg-Cmds": ffmpeg_cmds,
     "Metadata": metadata,
+    "Video-Tools": video_tools,
 }
 
 MIRROR_HELP_DICT = {
@@ -337,6 +348,7 @@ MIRROR_HELP_DICT = {
     "Leech-Type": leech_as,
     "FFmpeg-Cmds": ffmpeg_cmds,
     "Metadata": metadata,
+    "Video-Tools": video_tools,
 }
 
 CLONE_HELP_DICT = {
@@ -477,6 +489,10 @@ def get_help_string():
         elif key == "YtdlLeech":
             help_lines.append(
                 f"/{BotCommands.YtdlLeechCommand[0]} or /{BotCommands.YtdlLeechCommand[1]}: Leech yt-dlp supported link."
+            )
+        elif key == "VideoTools":
+            help_lines.append(
+                f"/{BotCommands.VideoToolsCommand[0]} or /{BotCommands.VideoToolsCommand[1]}: Video Tools menu with Compress; more tools coming soon (watermark, merge, etc.)."
             )
         elif key == "Clone":
             help_lines.append(
