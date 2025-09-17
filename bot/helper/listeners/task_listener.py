@@ -416,23 +416,30 @@ class TaskListener(TaskConfig):
             await send_message(self.message, user_message, button)
 
         elif self.is_leech:
-            msg += f"\n<b>Total Files: </b>{folders}"
-            if mime_type != 0:
-                msg += f"\n┠ <b>Corrupted Files</b> → {mime_type}"
-            msg += f"\n┖ <b>Task By</b> → {self.tag}\n\n"
+            # Send sticker before summary message
+            sticker_id = "CAACAgIAAxkBAAEPXcxoxbFVZuZfrbbTxTP3EobXzmbkeQACYxUAAuL3oUs8puu8KPL_KTYE"
+            await self.message._client.send_sticker(self.message.chat.id, sticker_id)
+
+            summary = (
+                "╭━━━ <b>Task Finished</b> ━━━╮\n"
+                f"│ <b>{escape(self.name)}</b>\n"
+                f"│ Size: {get_readable_file_size(self.size)}\n"
+                f"│ Time: {get_readable_time(time() - self.message.date.timestamp())}\n"
+                f"│ In → <b>{self.mode[0]}</b> | Out → <b>{self.mode[1]}</b>\n"
+                f"│ Total Files: {folders}\n"
+                f"│ 👤 Task By: {self.tag}\n"
+                "╰━━━━━━━━━━━━━━━━━━━━━━━╯\n"
+                "File(s) have been sent to User PM\n"
+                "<i><a href='https://t.me/NxMirror'>Bot By NxMirror</a></i>"
+            )
 
             if self.bot_pm:
-                pmsg = msg
-                pmsg += "〶 <b><u>Action Performed :</u></b>\n"
-                pmsg += "⋗ <i>File(s) have been sent to User PM</i>\n\n"
                 if self.is_super_chat:
-                    await send_message(self.message, pmsg)
-
+                    await send_message(self.message, summary)
             if not files and not self.is_super_chat:
-                await send_message(self.message, msg)
+                await send_message(self.message, summary)
             else:
                 log_chat = self.user_id if self.bot_pm else self.message
-                msg += "〶 <b><u>Files List :</u></b>\n"
                 fmsg = ""
                 for index, (link, name) in enumerate(files.items(), start=1):
                     chat_id, msg_id = link.split("/")[-2:]
@@ -445,12 +452,12 @@ class TaskListener(TaskConfig):
                         flink = f"https://t.me/{TgClient.BNAME}?start={encode_slink('file' + chat_id + '&&' + msg_id)}"
                         fmsg += f"\n┖ <b>Get Media</b> → <a href='{flink}'>Store Link</a> | <a href='https://t.me/share/url?url={flink}'>Share Link</a>"
                     fmsg += "\n"
-                    if len(fmsg.encode() + msg.encode()) > 4000:
-                        await send_message(log_chat, msg + fmsg)
+                    if len(fmsg.encode() + summary.encode()) > 4000:
+                        await send_message(log_chat, summary + fmsg)
                         await sleep(1)
                         fmsg = ""
                 if fmsg != "":
-                    await send_message(log_chat, msg + fmsg)
+                    await send_message(log_chat, summary + fmsg)
         else:
             msg += f"\n│\n┟ <b>Type</b> → {mime_type}"
             if mime_type == "Folder":
@@ -536,25 +543,28 @@ class TaskListener(TaskConfig):
                 del task_dict[self.mid]
             count = len(task_dict)
         await self.remove_from_same_dir()
-        msg = (
-            f"""〶 <b><i><u>Limit Breached:</u></i></b>
-│
-┟ <b>Task Size</b> → {get_readable_file_size(self.size)}
-┠ <b>In Mode</b> → {self.mode[0]}
-┠ <b>Out Mode</b> → {self.mode[1]}
-{error}"""
-            if is_limit
-            else f"""<i><b>〶 Download Stopped!</b></i>
-│
-┟ <b>Due To</b> → {escape(str(error))}
-┠ <b>Task Size</b> → {get_readable_file_size(self.size)}
-┠ <b>Time Taken</b> → {get_readable_time(time() - self.message.date.timestamp())}
-┠ <b>In Mode</b> → {self.mode[0]}
-┠ <b>Out Mode</b> → {self.mode[1]}
-┖ <b>Task By</b> → {self.tag}"""
-        )
 
-        await send_message(self.message, msg, button)
+        # Send error sticker before error message
+        sticker_id = "CAACAgIAAxkBAAEPZLVoys6dGB1N4WejY8GvBPKPslKeuQACQgQAAsxUSQkbJ3A-VjABIzYE"
+        await self.message._client.send_sticker(self.message.chat.id, sticker_id)
+
+        
+        error_msg = (
+            "╭━━━ ☠️ <b>Task Stopped</b> ☠️ ━━━╮\n"
+            f"│ 📁: <b>{escape(self.name) if hasattr(self, 'name') else '-'}</b>\n"
+            f"│ Size: {get_readable_file_size(getattr(self, 'size', 0))}\n"
+            f"│ Time: {get_readable_time(time() - self.message.date.timestamp())}\n"
+            f"│ In → <b>{self.mode[0]}</b> | Out → <b>{self.mode[1]}</b>\n"
+            f"│ 👤 Task By: {self.tag}\n"
+            "╰━━━━━━━━━━━━━━━━━━━━━━━╯\n"
+        )
+        if is_limit:
+            error_msg += f"🚫 <b>Limit Breached!</b>\n{str(error)}"
+        else:
+            error_msg += f"🚫 <b>Download Stopped!</b>\n📝 <b>Due To:</b> {escape(str(error))}"
+
+        await send_message(self.message, error_msg, button)
+
         if count == 0:
             await self.clean()
         else:
