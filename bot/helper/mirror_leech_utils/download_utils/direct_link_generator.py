@@ -451,6 +451,8 @@ def direct_link_generator(link):
         return onedrive(link)
     elif "pixeldrain.com" in domain:
         return pixeldrain(link)
+    elif "https://gdlink.dev" in domain:
+        return pixeldrain(link)
     elif "racaty" in domain:
         return racaty(link)
     elif "1fichier.com" in domain:
