@@ -20,15 +20,15 @@ SIZE_UNITS = ["B", "KB", "MB", "GB", "TB", "PB"]
 
 
 class MirrorStatus:
-    STATUS_UPLOAD = "Upload"
-    STATUS_DOWNLOAD = "Download"
+    STATUS_UPLOAD = "⚡ Upload"
+    STATUS_DOWNLOAD = "🍓 Download"
     STATUS_CLONE = "Clone"
     STATUS_QUEUEDL = "QueueDl"
     STATUS_QUEUEUP = "QueueUp"
     STATUS_PAUSED = "Pause"
-    STATUS_ARCHIVE = "Archive"
-    STATUS_EXTRACT = "Extract"
-    STATUS_SPLIT = "Split"
+    STATUS_ARCHIVE = "🔧 Archive"
+    STATUS_EXTRACT = "🔧 Extract"
+    STATUS_SPLIT = "🌵 Split"
     STATUS_CHECK = "CheckUp"
     STATUS_SEED = "Seed"
     STATUS_SAMVID = "SamVid"
