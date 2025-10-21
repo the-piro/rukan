@@ -347,6 +347,31 @@
             max-width: 100%;
             overflow-wrap: break-word;
         }
+
+        .shift-selection-hint {
+            font-size: 0.85em;
+            color: hsl(215 20.2% 65.1%);
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            background-color: hsla(217.2, 91.2%, 59.8%, 0.1);
+            border-radius: 0.25rem;
+        }
+
+        .dark .shift-selection-hint {
+            color: hsl(213 31% 80%);
+        }
+
+        /* Prevent text selection during shift-click */
+        body.shift-selecting {
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        body.shift-selecting .file-name {
+            user-select: none;
+        }
     </style>
 </head>
 
@@ -379,6 +404,9 @@
         </div>
 
         <div id="fileManager" class="card p-6 hidden">
+            <div class="shift-selection-hint">
+                💡 Tip: Hold Shift and click to select multiple files/folders in a range
+            </div>
             <div class="flex flex-wrap justify-between items-start mb-4">
                 <div class="flex flex-col items-center mr-2 mb-2">
                     <button id="selectAllBtn" class="btn btn-primary">Select All</button>
@@ -459,6 +487,9 @@
         let files = [];
         let allowEdit = false;
 
+        // Shift-selection functionality
+        let lastCheckedNodeId = null;
+
         function loadThemePreference() {
             const savedTheme = localStorage.getItem('darkMode');
             if (savedTheme !== null) {
@@ -508,22 +539,73 @@
             fileTree.innerHTML = '';
             if (currentFolder) {
                 const backButton = document.createElement('div');
-                backButton.className = 'file-tree-item folder';
+                backButton.className = 'file-tree-item folder back-button';
                 backButton.innerHTML = '<span class="icon">📁</span>...';
                 backButton.addEventListener('click', goBack);
                 fileTree.appendChild(backButton);
             }
-            nodes.forEach(node => {
+            nodes.forEach((node, nodeIndex) => {
                 const div = document.createElement('div');
                 div.className = 'file-tree-item';
+                div.dataset.nodeIndex = nodeIndex; // Store the actual index
                 const checkboxWrapper = document.createElement('div');
                 checkboxWrapper.className = 'checkbox-wrapper';
 
+                // Create checkbox properly
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.id = node.id;
                 checkbox.checked = node.selected;
-                checkbox.addEventListener('change', () => toggleFile(node));
+                checkbox.dataset.nodeIndex = nodeIndex; // Store index on checkbox too
+
+                // Handle both shift-click and normal click in one event
+                checkbox.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent event bubbling
+
+                    // Check if shift key is held and we have a last checked node
+                    if (e.shiftKey && lastCheckedNodeId !== null) {
+                        e.preventDefault(); // Prevent default checkbox toggle
+
+                        // Get the visible nodes array
+                        const visibleNodes = getVisibleNodes();
+
+                        // Get current index from data attribute
+                        const currentIndex = parseInt(checkbox.dataset.nodeIndex);
+
+                        // Find the last checked checkbox element and get its index
+                        const lastCheckbox = document.querySelector(`input[type="checkbox"][id="${lastCheckedNodeId}"]`);
+                        const lastIndex = lastCheckbox ? parseInt(lastCheckbox.dataset.nodeIndex) : -1;
+
+                        if (!isNaN(currentIndex) && lastIndex !== -1) {
+                            const start = Math.min(currentIndex, lastIndex);
+                            const end = Math.max(currentIndex, lastIndex);
+
+                            // Determine the target state - if the current click would check the box, check all in range
+                            const targetState = !node.selected;
+
+                            // Select/deselect all nodes in range
+                            for (let i = start; i <= end; i++) {
+                                const targetNode = visibleNodes[i];
+
+                                if (targetNode) {
+                                    if (targetNode.type === 'folder') {
+                                        toggleFolder(targetNode, targetState);
+                                    } else {
+                                        targetNode.selected = targetState;
+                                    }
+                                }
+                            }
+
+                            updateStats();
+                            renderFileTree(visibleNodes);
+                            lastCheckedNodeId = node.id; // Update after render
+                        }
+                    } else {
+                        // Normal click - handle the toggle
+                        toggleFile(node);
+                        lastCheckedNodeId = node.id; // Update last checked node
+                    }
+                });
 
                 checkboxWrapper.appendChild(checkbox);
 
@@ -537,6 +619,13 @@
                 const nameElement = document.createElement('div');
                 nameElement.className = 'file-name cursor-pointer';
                 nameElement.textContent = node.name;
+
+                // Prevent text selection on shift+mousedown
+                nameElement.addEventListener('mousedown', (e) => {
+                    if (e.shiftKey) {
+                        e.preventDefault();
+                    }
+                });
 
                 const sizeInfo = document.createElement('div');
                 sizeInfo.className = 'size-info';
@@ -559,7 +648,53 @@
                 }
                 div.addEventListener('click', (event) => {
                     if (event.target.className === 'file-name cursor-pointer') {
-                        toggleFile(node)
+                        // Check if shift key is held for shift-selection
+                        if (event.shiftKey && lastCheckedNodeId !== null) {
+                            event.preventDefault();
+                            event.stopPropagation();
+
+                            // Prevent text selection
+                            window.getSelection().removeAllRanges();
+
+                            // Get the visible nodes array
+                            const visibleNodes = getVisibleNodes();
+
+                            // Get current index from data attribute
+                            const currentIndex = parseInt(div.dataset.nodeIndex);
+
+                            // Find the last checked checkbox element and get its index
+                            const lastCheckbox = document.querySelector(`input[type="checkbox"][id="${lastCheckedNodeId}"]`);
+                            const lastIndex = lastCheckbox ? parseInt(lastCheckbox.dataset.nodeIndex) : -1;
+
+                            if (!isNaN(currentIndex) && lastIndex !== -1) {
+                                const start = Math.min(currentIndex, lastIndex);
+                                const end = Math.max(currentIndex, lastIndex);
+
+                                // Determine the target state - if the current click would check the box, check all in range
+                                const targetState = !node.selected;
+
+                                // Select/deselect all nodes in range
+                                for (let i = start; i <= end; i++) {
+                                    const targetNode = visibleNodes[i];
+
+                                    if (targetNode) {
+                                        if (targetNode.type === 'folder') {
+                                            toggleFolder(targetNode, targetState);
+                                        } else {
+                                            targetNode.selected = targetState;
+                                        }
+                                    }
+                                }
+
+                                updateStats();
+                                renderFileTree(visibleNodes);
+                                lastCheckedNodeId = node.id; // Update after render
+                            }
+                        } else {
+                            // Normal click - toggle the file
+                            toggleFile(node);
+                            lastCheckedNodeId = node.id;
+                        }
                     } else if (event.target.className === 'edit-btn') {
                         openEditFileNameModal(node)
                     }
@@ -615,6 +750,30 @@
             updateParentFolders(node);
             updateStats();
             renderFileTree(currentFolder ? currentFolder.children : files);
+        }
+
+        function findNodeInCurrentView(id) {
+            const currentNodes = currentFolder ? currentFolder.children : files;
+            return currentNodes.find(node => node.id === id);
+        }
+
+        function getVisibleNodes() {
+            return currentFolder ? currentFolder.children : files;
+        }
+
+        // Helper function to find node by ID
+        function findNodeById(nodes, id) {
+            const queue = [...nodes];
+            while (queue.length > 0) {
+                const node = queue.shift();
+                if (node.id === id) {
+                    return node;
+                }
+                if (node.children) {
+                    queue.push(...node.children);
+                }
+            }
+            return null;
         }
 
         function toggleFolder(folder, isSelected) {
@@ -687,6 +846,7 @@
 
         function openFolder(folder) {
             currentFolder = folder;
+            lastCheckedNodeId = null; // Reset when changing folders
             renderFileTree(folder.children);
             updateStats();
         }
@@ -701,6 +861,7 @@
                     currentFolder = null;
                     renderFileTree(files);
                 }
+                lastCheckedNodeId = null; // Reset when going back
                 updateStats();
             }
         }
@@ -954,6 +1115,24 @@
         }
 
         loadThemePreference();
+
+        // Track shift key state to prevent text selection
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Shift') {
+                body.classList.add('shift-selecting');
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'Shift') {
+                body.classList.remove('shift-selecting');
+            }
+        });
+
+        // Remove shift-selecting class on window blur to handle edge cases
+        window.addEventListener('blur', () => {
+            body.classList.remove('shift-selecting');
+        });
     </script>
 </body>
 
