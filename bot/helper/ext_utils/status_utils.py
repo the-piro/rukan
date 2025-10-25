@@ -17,7 +17,7 @@ from ...core.config_manager import Config
 from ..telegram_helper.button_build import ButtonMaker
 
 SIZE_UNITS = ["B", "KB", "MB", "GB", "TB", "PB"]
-
+HIDE_NAME_SEC = 10
 
 class MirrorStatus:
     STATUS_UPLOAD = "🌵Upload"
@@ -198,7 +198,6 @@ def get_progress_bar_string(pct):
     p_str += "□" * (12 - cFull)
     return f"[{p_str}]"
 
-
 async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=1):
     msg = ""
     button = None
@@ -216,20 +215,24 @@ async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=
         status_dict[sid]["page_no"] = page_no
     start_position = (page_no - 1) * STATUS_LIMIT
 
-    for index, task in enumerate(
-        tasks[start_position : STATUS_LIMIT + start_position], start=1
-    ):
+    for index, task in enumerate(tasks[start_position: STATUS_LIMIT + start_position], start=1):
         if status != "All":
             tstatus = status
         elif iscoroutinefunction(task.status):
             tstatus = await task.status()
         else:
             tstatus = task.status()
+
+        elapsed = time() - task.listener.message.date.timestamp()
+        if elapsed > HIDE_NAME_SEC:
+            display_name = "Processing"
+        else:
+            display_name = escape(f"{task.name()}")
+
         msg += f"<b>{index + start_position}.</b> "
-        msg += f"<b><i>{escape(f'{task.name()}')}</i></b>"
+        msg += f"<b><i>{display_name}</i></b>"
         if task.listener.subname:
             msg += f"\n┖ <b>Sub Name</b> → <i>{task.listener.subname}</i>"
-        elapsed = time() - task.listener.message.date.timestamp()
 
         msg += f"\n\n<b>By {task.listener.message.from_user.mention(style='html')} </b> ( #ID{task.listener.message.from_user.id} )"
         if task.listener.is_super_chat:
@@ -261,7 +264,6 @@ async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=
                     msg += f"\n╞ <b>Seeders</b> → {task.seeders_num()} | <b>Leechers</b> → {task.leechers_num()}"
                 except Exception:
                     pass
-            # TODO: Add Connected Peers
         elif tstatus == MirrorStatus.STATUS_SEED:
             msg += f"\n╞ <b>Size</b> → <i>{task.size()}</i> | <b>Uploaded</b>  → <i>{task.uploaded_bytes()}</i>"
             msg += f"\n╞ <b>Status</b> → <b>{tstatus}</b>"
@@ -273,9 +275,7 @@ async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=
         msg += f"\n╞ <b>Engine</b> → <i>{task.engine}</i>"
         msg += f"\n╞ <b>In Mode</b> → <i>{task.listener.mode[0]}</i>"
         msg += f"\n╞ <b>Out Mode</b> → <i>{task.listener.mode[1]}</i>"
-        # TODO: Add Bt Sel
         from ..telegram_helper.bot_commands import BotCommands
-
         msg += f"\n<b>╰╴Cancle</b> → <i>/{BotCommands.CancelTaskCommand[1]}_{task.gid()}</i>\n\n"
 
     if len(msg) == 0:
