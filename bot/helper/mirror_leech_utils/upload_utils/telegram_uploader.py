@@ -77,6 +77,8 @@ class TelegramUploader:
         self._log_msg = None
         self._user_session = self._listener.user_transmission
         self._error = ""
+        # new attribute to keep chosen upload target: 'leech_dest', 'dump_chat', 'bot_pm', 'source'
+        self._upload_target = None
 
     async def _upload_progress(self, current, _):
         if self._listener.is_cancelled:
@@ -109,66 +111,93 @@ class TelegramUploader:
             self._thumb = None
 
     async def _msg_to_reply(self):
-        if self._listener.up_dest:
-            msg_link = (
-                self._listener.message.link if self._listener.is_super_chat else ""
-            )
-            msg = f"""➲ <b><u>Leech Started :</u></b>
+        # Decide a single target to upload to (no copying afterwards):
+        # priority: user leech_dest -> LEECH_DUMP_CHAT (up_dest) -> BOT_PM -> source chat
+        chosen_chat = None
+        chosen_kind = None
+
+        # If user provided a per-user leech destination, use it exclusively
+        if self._listener.leech_dest:
+            leech_dest = self._listener.leech_dest
+            if not isinstance(leech_dest, int):
+                if "|" in str(leech_dest):
+                    leech_dest, _ = str(leech_dest).split("|", 1)
+                if leech_dest.lstrip("-").isdigit():
+                    leech_dest = int(leech_dest)
+            chosen_chat = leech_dest
+            chosen_kind = "leech_dest"
+
+        # Else if dump chat is configured, use it (do not copy elsewhere)
+        elif self._listener.up_dest:
+            chosen_chat = self._listener.up_dest
+            chosen_kind = "dump_chat"
+
+        # Else if bot pm is enabled (via user or config) use bot PM
+        elif self._bot_pm:
+            chosen_chat = self._listener.user_id
+            chosen_kind = "bot_pm"
+
+        # Else fallback to source chat / user session behavior
+        else:
+            chosen_chat = None
+            chosen_kind = "source"
+
+        self._upload_target = chosen_kind
+
+        # Build 'Leech Started' message text (only used when sending start log to a chat)
+        msg_link = (
+            self._listener.message.link if self._listener.is_super_chat else ""
+        )
+        msg = f"""➲ <b><u>Leech Started :</u></b>
 ┃
 ┠ <b>User :</b> {self._listener.user.mention} ( #ID{self._listener.user_id} ){f"\n┠ <b>Message Link :</b> <a href='{msg_link}'>Click Here</a>" if msg_link else ""}
 ┖ <b>Source :</b> <a href='{self._listener.source_url}'>Click Here</a>"""
-            try:
+
+        try:
+            if chosen_kind in ("leech_dest", "dump_chat", "bot_pm"):
+                # Send start message to the chosen chat using bot account
                 self._log_msg = await TgClient.bot.send_message(
-                    chat_id=self._listener.up_dest,
+                    chat_id=chosen_chat,
                     text=msg,
                     disable_web_page_preview=True,
                     message_thread_id=self._listener.chat_thread_id,
                     disable_notification=True,
                 )
+                # set sent_msg based on whether we need to use user session interface
                 self._sent_msg = self._log_msg
                 if self._user_session:
+                    # try to fetch the message via user client to keep consistent object type
                     self._sent_msg = await TgClient.user.get_messages(
                         chat_id=self._sent_msg.chat.id,
                         message_ids=self._sent_msg.id,
                     )
                 else:
-                    self._is_private = self._sent_msg.chat.type.name == "PRIVATE"
-                if self._listener.leech_dest:
+                    # determine if chat is private (used later to decide copying/forwarding)
                     try:
-                        leech_dest = self._listener.leech_dest
-                        if not isinstance(leech_dest, int):
-                            if "|" in str(leech_dest):
-                                leech_dest, _ = str(leech_dest).split("|", 1)
-                            if leech_dest.lstrip("-").isdigit():
-                                leech_dest = int(leech_dest)
-                        await self._log_msg.copy(chat_id=leech_dest)
-                    except Exception as e:
-                        if not self._listener.is_cancelled:
-                            LOGGER.error(
-                                f"Failed to copy 'Leech Started' message to {self._listener.leech_dest}: {e}"
-                            )
-                            await send_message(
-                                self._listener.user_id,
-                                f"Failed to send 'Leech Started' message to {self._listener.leech_dest}\n{e}",
-                            )
-            except Exception as e:
-                await self._listener.on_upload_error(str(e))
-                return False
-
-        elif self._user_session:
-            self._sent_msg = await TgClient.user.get_messages(
-                chat_id=self._listener.message.chat.id, message_ids=self._listener.mid
-            )
-            if self._sent_msg is None:
-                self._sent_msg = await TgClient.user.send_message(
-                    chat_id=self._listener.message.chat.id,
-                    text="Deleted Cmd Message! Don't delete the cmd message again!",
-                    disable_web_page_preview=True,
-                    disable_notification=True,
+                        self._is_private = (
+                            self._sent_msg.chat.type.name == "PRIVATE"
+                        )
+                    except Exception:
+                        self._is_private = False
+            elif self._user_session:
+                # When using user session and no special target was chosen, try to get the command message
+                self._sent_msg = await TgClient.user.get_messages(
+                    chat_id=self._listener.message.chat.id, message_ids=self._listener.mid
                 )
-        else:
-            self._sent_msg = self._listener.message
-        return True
+                if self._sent_msg is None:
+                    self._sent_msg = await TgClient.user.send_message(
+                        chat_id=self._listener.message.chat.id,
+                        text="Deleted Cmd Message! Don't delete the cmd message again!",
+                        disable_web_page_preview=True,
+                        disable_notification=True,
+                    )
+            else:
+                # default: upload in source chat (the original message object)
+                self._sent_msg = self._listener.message
+            return True
+        except Exception as e:
+            await self._listener.on_upload_error(str(e))
+            return False
 
     async def _prepare_file(self, pre_file_, dirpath):
         cap_file_ = file_ = pre_file_
@@ -319,19 +348,10 @@ class TelegramUploader:
         self._sent_msg = msgs_list[-1]
 
     async def _copy_media(self):
-        try:
-            if self._bot_pm:
-                await TgClient.bot.copy_message(
-                    chat_id=self._listener.user_id,
-                    from_chat_id=self._sent_msg.chat.id,
-                    message_id=self._sent_msg.id,
-                    reply_to_message_id=(
-                        self._listener.pm_msg.id if self._listener.pm_msg else None
-                    ),
-                )
-        except Exception as err:
-            if not self._listener.is_cancelled:
-                LOGGER.error(f"Failed To Send in BotPM:\n{str(err)}")
+        # Copying to other destinations is removed to enforce single-target upload logic.
+        # This method intentionally does nothing now. Uploads happen only to the chosen target
+        # (leech_dest, dump_chat, bot_pm or source chat) and are not copied afterward.
+        return
 
     async def upload(self):
         await self._user_settings()
@@ -590,29 +610,8 @@ class TelegramUploader:
                         self._last_msg_in_group = True
 
             if self._sent_msg:
-                await self._copy_media()
-                if self._listener.leech_dest:
-                    try:
-                        leech_dest = self._listener.leech_dest
-                        if not isinstance(leech_dest, int):
-                            if "|" in str(leech_dest):
-                                leech_dest, _ = str(leech_dest).split("|", 1)
-                            if leech_dest.lstrip("-").isdigit():
-                                leech_dest = int(leech_dest)
-                        await TgClient.bot.copy_message(
-                            chat_id=leech_dest,
-                            from_chat_id=self._sent_msg.chat.id,
-                            message_id=self._sent_msg.id,
-                        )
-                    except Exception as e:
-                        if not self._listener.is_cancelled:
-                            LOGGER.error(
-                                f"Failed to forward to {self._listener.leech_dest}: {e}"
-                            )
-                            await send_message(
-                                self._listener.user_id,
-                                f"Failed to forward to {self._listener.leech_dest}\n{e}",
-                            )
+                # Copying to other destinations was removed. Uploads are done only to the chosen target.
+                pass
 
             if (
                 self._thumb is None
