@@ -109,10 +109,10 @@ class TelegramUploader:
 
         if self._thumb != "none" and not await aiopath.exists(self._thumb):
             self._thumb = None
-
+            
     async def _msg_to_reply(self):
-        # Decide a single target to upload to (no copying afterwards):
-        # priority: user leech_dest -> LEECH_DUMP_CHAT (up_dest) -> BOT_PM -> source chat
+        # Decide a single target to upload to (NO source chat fallback):
+        # priority: user leech_dest -> LEECH_DUMP_CHAT (up_dest) -> BOT_PM (always fallback)
         chosen_chat = None
         chosen_kind = None
 
@@ -127,20 +127,15 @@ class TelegramUploader:
             chosen_chat = leech_dest
             chosen_kind = "leech_dest"
 
-        # Else if dump chat is configured, use it (do not copy elsewhere)
+        # Else if dump chat is configured, use it
         elif self._listener.up_dest:
             chosen_chat = self._listener.up_dest
             chosen_kind = "dump_chat"
 
-        # Else if bot pm is enabled (via user or config) use bot PM
-        elif self._bot_pm:
+        # Else fallback to bot pm (user's private chat with the bot)
+        else:
             chosen_chat = self._listener.user_id
             chosen_kind = "bot_pm"
-
-        # Else fallback to source chat / user session behavior
-        else:
-            chosen_chat = None
-            chosen_kind = "source"
 
         self._upload_target = chosen_kind
 
@@ -154,51 +149,33 @@ class TelegramUploader:
 ┖ <b>Source :</b> <a href='{self._listener.source_url}'>Click Here</a>"""
 
         try:
-            if chosen_kind in ("leech_dest", "dump_chat", "bot_pm"):
-                # Send start message to the chosen chat using bot account
-                self._log_msg = await TgClient.bot.send_message(
-                    chat_id=chosen_chat,
-                    text=msg,
-                    disable_web_page_preview=True,
-                    message_thread_id=self._listener.chat_thread_id,
-                    disable_notification=True,
-                )
-                # set sent_msg based on whether we need to use user session interface
-                self._sent_msg = self._log_msg
-                if self._user_session:
-                    # try to fetch the message via user client to keep consistent object type
-                    self._sent_msg = await TgClient.user.get_messages(
-                        chat_id=self._sent_msg.chat.id,
-                        message_ids=self._sent_msg.id,
-                    )
-                else:
-                    # determine if chat is private (used later to decide copying/forwarding)
-                    try:
-                        self._is_private = (
-                            self._sent_msg.chat.type.name == "PRIVATE"
-                        )
-                    except Exception:
-                        self._is_private = False
-            elif self._user_session:
-                # When using user session and no special target was chosen, try to get the command message
+            # Always use bot interface for sending
+            self._log_msg = await TgClient.bot.send_message(
+                chat_id=chosen_chat,
+                text=msg,
+                disable_web_page_preview=True,
+                message_thread_id=self._listener.chat_thread_id,
+                disable_notification=True,
+            )
+            self._sent_msg = self._log_msg
+            if self._user_session:
+                # try to fetch the message via user client to keep consistent object type
                 self._sent_msg = await TgClient.user.get_messages(
-                    chat_id=self._listener.message.chat.id, message_ids=self._listener.mid
+                    chat_id=self._sent_msg.chat.id,
+                    message_ids=self._sent_msg.id,
                 )
-                if self._sent_msg is None:
-                    self._sent_msg = await TgClient.user.send_message(
-                        chat_id=self._listener.message.chat.id,
-                        text="Deleted Cmd Message! Don't delete the cmd message again!",
-                        disable_web_page_preview=True,
-                        disable_notification=True,
-                    )
             else:
-                # default: upload in source chat (the original message object)
-                self._sent_msg = self._listener.message
+                # determine if chat is private (used later to decide copying/forwarding)
+                try:
+                    self._is_private = (
+                        self._sent_msg.chat.type.name == "PRIVATE"
+                    )
+                except Exception:
+                    self._is_private = False
             return True
         except Exception as e:
             await self._listener.on_upload_error(str(e))
             return False
-
     async def _prepare_file(self, pre_file_, dirpath):
         cap_file_ = file_ = pre_file_
 
