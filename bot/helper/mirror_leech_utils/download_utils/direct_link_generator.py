@@ -1443,7 +1443,6 @@ def linkBox(url: str):
         raise e
     return details
 
-
 def gofile(url):
     try:
         if "::" in url:
@@ -1473,13 +1472,14 @@ def gofile(url):
             raise e
 
     def __fetch_links(session, _id, folderPath=""):
-        _url = f"https://api.gofile.io/contents/{_id}?wt=4fd6sg89d7s6&cache=true"
+        _url = f"https://api.gofile.io/contents/{_id}?cache=true"
         headers = {
             "User-Agent": user_agent,
             "Accept-Encoding": "gzip, deflate, br",
             "Accept": "*/*",
             "Connection": "keep-alive",
             "Authorization": "Bearer" + " " + token,
+            "X-Website-Token" : "4fd6sg89d7s6"
         }
         if _password:
             _url += f"&password={_password}"
@@ -1545,8 +1545,7 @@ def gofile(url):
     if len(details["contents"]) == 1:
         return (details["contents"][0]["url"], details["header"])
     return details
-
-
+    
 def mediafireFolder(url):
     if "::" in url:
         _password = url.split("::")[-1]
