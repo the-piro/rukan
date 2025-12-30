@@ -1,0 +1,67 @@
+Bot's Telegram File Upload Flow Explained
+
+This document explains the end-to-end process of how the bot uploads files to Telegram, including the handling of custom thumbnails, prefixes, suffixes, and other user-defined settings.
+
+### 1. Command Initiation
+
+The upload process begins when a user issues a command like `/mirror` or `/leech`. This is handled in `bot/modules/mirror_leech.py`, where the `Mirror` class parses the command and its arguments. The arguments determine various aspects of the download and upload process, such as:
+
+- `-t`: Custom thumbnail
+- `-n`: New name for the file
+- `-up`: Upload destination
+- `-z`: Compress the file
+- `-e`: Extract the file
+- `LEECH_PREFIX`: Prefix for the filename
+- `LEECH_SUFFIX`: Suffix for the filename
+- `LEECH_CAPTION`: Custom caption for the upload
+
+### 2. File Download and Preparation
+
+Before uploading, the bot first downloads the file from the provided link. Once the download is complete, the `TelegramUploader` class in `bot/helper/mirror_leech_utils/upload_utils/telegram_uploader.py` is called to handle the upload process.
+
+### 3. User and Configuration Settings
+
+The `_user_settings` method in `telegram_uploader.py` is responsible for loading user-specific and global configurations. This is where settings like `LEECH_PREFIX`, `LEECH_SUFFIX`, `LEECH_CAPTION`, `MEDIA_GROUP`, and `BOT_PM` are retrieved.
+
+- **Custom Thumbnail:** The bot checks for a custom thumbnail provided with the `-t` flag. If a URL is provided, it's downloaded. If no custom thumbnail is specified, the bot looks for a user-specific thumbnail at `thumbnails/{user_id}.jpg`. If neither is available, it attempts to generate one automatically for video and audio files.
+
+### 4. File Renaming (Prefix and Suffix)
+
+The `_prepare_file` method handles the addition of prefixes and suffixes to the filename.
+
+- **Prefix (`_lprefix`):** If a `LEECH_PREFIX` is set, it's prepended to the filename. The original filename is modified to include the prefix.
+- **Suffix (`_lsuffix`):** If a `LEECH_SUFFIX` is set, it's appended to the filename before the extension. This allows for adding extra information to the filename while preserving the file type.
+
+### 5. Custom Caption
+
+The same `_prepare_file` method also constructs the caption for the upload. The `LEECH_CAPTION` setting allows for dynamic captions using placeholders like:
+
+- `{filename}`: The name of the file
+- `{size}`: The size of the file
+- `{duration}`: The duration of the media (for video/audio)
+- `{quality}`: The quality of the video
+
+### 6. Media Type Determination and Upload
+
+The `_upload_file` method determines the type of media and uploads it accordingly.
+
+- **Document Type Check:** The `get_document_type` utility function checks if the file is a video, audio, or image.
+- **Forced Document:** If the `as_doc` flag is used or if the file is not a recognized media type, it's uploaded as a document using `reply_document`.
+- **Video/Audio/Photo:** If the file is a recognized media type, it's uploaded using `reply_video`, `reply_audio`, or `reply_photo`. This allows for streaming and proper display in the Telegram client.
+
+### 7. Media Group Handling
+
+If the `MEDIA_GROUP` option is enabled, the bot groups multiple files into a single message.
+
+- **Grouping Logic:** Files with similar names (e.g., `file.part1.rar`, `file.part2.rar`) are grouped together.
+- **Sending the Group:** When the group reaches 10 files or the upload task completes, the `_send_media_group` method is called to send the files as a media group.
+
+### 8. Post-Upload Actions
+
+After the upload is complete, the bot performs several cleanup and notification actions.
+
+- **Message Logging:** A log of the uploaded files is maintained in the `_msgs_dict`, which is used to provide a summary to the user.
+- **Cleanup:** The local copy of the file is deleted after a successful upload.
+- **Final Status:** The `on_upload_complete` method is called to send a final status message to the user, summarizing the results of the leech.
+
+This flow ensures that the bot is highly customizable, allowing users to control everything from the filename and caption to the way files are presented in Telegram. The logic is robust, with error handling and retries built-in to handle potential issues during the upload process.
