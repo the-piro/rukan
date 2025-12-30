@@ -77,6 +77,7 @@ class TelegramUploader:
         self._log_msg = None
         self._user_session = self._listener.user_transmission
         self._error = ""
+        self._spoiler = False
 
     async def _upload_progress(self, current, _):
         if self._listener.is_cancelled:
@@ -96,6 +97,7 @@ class TelegramUploader:
             "LEECH_SUFFIX": ("_lsuffix", ""),
             "LEECH_CAPTION": ("_lcaption", ""),
             "LEECH_FONT": ("_lfont", ""),
+            "SPOILER": ("_spoiler", False),
         }
 
         for key, (attr, default) in settings_map.items():
@@ -263,18 +265,26 @@ class TelegramUploader:
         for msg in self._media_dict[key][subkey]:
             if key == "videos":
                 input_media = InputMediaVideo(
-                    media=msg.video.file_id, caption=msg.caption
+                    media=msg.video.file_id,
+                    caption=msg.caption,
+                    has_spoiler=self._spoiler,
                 )
             else:
                 input_media = InputMediaDocument(
-                    media=msg.document.file_id, caption=msg.caption
+                    media=msg.document.file_id,
+                    caption=msg.caption,
+                    has_spoiler=self._spoiler,
                 )
             rlist.append(input_media)
         return rlist
 
     async def _send_screenshots(self, dirpath, outputs):
         inputs = [
-            InputMediaPhoto(ospath.join(dirpath, p), p.rsplit("/", 1)[-1])
+            InputMediaPhoto(
+                ospath.join(dirpath, p),
+                p.rsplit("/", 1)[-1],
+                has_spoiler=self._spoiler,
+            )
             for p in outputs
         ]
         for i in range(0, len(inputs), 10):
@@ -503,6 +513,7 @@ class TelegramUploader:
                     force_document=True,
                     disable_notification=True,
                     progress=self._upload_progress,
+                    has_spoiler=self._spoiler,
                 )
             elif is_video:
                 key = "videos"
@@ -536,6 +547,7 @@ class TelegramUploader:
                     supports_streaming=True,
                     disable_notification=True,
                     progress=self._upload_progress,
+                    has_spoiler=self._spoiler,
                 )
             elif is_audio:
                 key = "audios"
@@ -554,6 +566,7 @@ class TelegramUploader:
                     thumb=thumb,
                     disable_notification=True,
                     progress=self._upload_progress,
+                    has_spoiler=self._spoiler,
                 )
             else:
                 key = "photos"
@@ -565,6 +578,7 @@ class TelegramUploader:
                     caption=cap_mono,
                     disable_notification=True,
                     progress=self._upload_progress,
+                    has_spoiler=self._spoiler,
                 )
 
             if (

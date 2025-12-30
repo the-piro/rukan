@@ -14,6 +14,7 @@ The upload process begins when a user issues a command like `/mirror` or `/leech
 - `LEECH_PREFIX`: Prefix for the filename
 - `LEECH_SUFFIX`: Suffix for the filename
 - `LEECH_CAPTION`: Custom caption for the upload
+- `SPOILER`: Marks the uploaded media as a spoiler
 
 ### 2. File Download and Preparation
 
@@ -21,9 +22,10 @@ Before uploading, the bot first downloads the file from the provided link. Once 
 
 ### 3. User and Configuration Settings
 
-The `_user_settings` method in `telegram_uploader.py` is responsible for loading user-specific and global configurations. This is where settings like `LEECH_PREFIX`, `LEECH_SUFFIX`, `LEECH_CAPTION`, `MEDIA_GROUP`, and `BOT_PM` are retrieved.
+The `_user_settings` method in `telegram_uploader.py` is responsible for loading user-specific and global configurations. This is where settings like `LEECH_PREFIX`, `LEECH_SUFFIX`, `LEECH_CAPTION`, `MEDIA_GROUP`, `BOT_PM`, and `SPOILER` are retrieved.
 
 - **Custom Thumbnail:** The bot checks for a custom thumbnail provided with the `-t` flag. If a URL is provided, it's downloaded. If no custom thumbnail is specified, the bot looks for a user-specific thumbnail at `thumbnails/{user_id}.jpg`. If neither is available, it attempts to generate one automatically for video and audio files.
+- **Spoiler:** If the `SPOILER` setting is enabled, the bot will upload media with a spoiler effect, hiding it until the user clicks to view it. This is handled by passing the `has_spoiler=True` parameter to the relevant Telegram API methods.
 
 ### 4. File Renaming (Prefix and Suffix)
 

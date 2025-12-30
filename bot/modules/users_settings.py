@@ -427,6 +427,14 @@ async def get_user_settings(from_user, stype="main"):
                 "Enable Media Group", f"userset {user_id} tog MEDIA_GROUP t"
             )
             media_group = "Disabled"
+
+        if user_dict.get("SPOILER", False):
+            buttons.data_button("Disable Spoiler", f"userset {user_id} tog SPOILER f")
+            spoiler_mode = "Enabled"
+        else:
+            buttons.data_button("Enable Spoiler", f"userset {user_id} tog SPOILER t")
+            spoiler_mode = "Disabled"
+
         if (
             TgClient.IS_PREMIUM_USER
             and user_dict.get("USER_TRANSMISSION", False)
@@ -485,6 +493,7 @@ async def get_user_settings(from_user, stype="main"):
 ┠ Leech Split Size → <b>{get_readable_file_size(split_size)}</b>
 ┠ Equal Splits → <b>{equal_splits}</b>
 ┠ Media Group → <b>{media_group}</b>
+┠ Spoilers → <b>{spoiler_mode}</b>
 ┠ Leech Prefix → <code>{escape(lprefix)}</code>
 ┠ Leech Suffix → <code>{escape(lsuffix)}</code>
 ┠ Leech Caption → <code>{escape(lcap)}</code>
