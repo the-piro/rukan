@@ -1,4 +1,4 @@
-FROM mysterysd/wzmlx:v3
+FROM thezake/oldwz:v3
 
 WORKDIR /usr/src/app
 RUN chmod 777 /usr/src/app
